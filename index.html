@@ -4,32 +4,32 @@ import urllib.request
 import re
 
 # -------------------------------------------------------------
-# خطوة ذكية: تثبيت PyQt5 ومحرك تشغيل VLC تلقائياً إن نقصت
+# تثبيت PyQt5 الذكي والتلقائي (يحتوي على المتصفح المدمج)
 # -------------------------------------------------------------
 try:
-    from PyQt5 import QtWidgets
+    from PyQt5 import QtWidgets, QtCore, QtWebEngineWidgets
     from PyQt5.QtCore import QUrl, Qt
-    from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget, QVBoxLayout
-    import vlc  # استيراد محرك تشغيل الفيديو العالمي vlc
+    from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget
+    from PyQt5.QtWebEngineWidgets import QWebEngineView
 except ImportError:
-    print("🔔 جاري تثبيت الحزم ومحرك الفيديو العالمي... يرجى الانتظار ثواني...")
+    print("🔔 جاري تهيئة المحرك المتوافق... يرجى الانتظار ثواني...")
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt5", "python-vlc"])
-        print("✅ تم التثبيت بنجاح! جاري تشغيل التطبيق...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt5", "PyQt5-WebEngine"])
+        print("✅ تم التجهيز! جاري تشغيل التطبيق...")
         from PyQt5.QtCore import QUrl, Qt
-        from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget, QVBoxLayout
-        import vlc
+        from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget
+        from PyQt5.QtWebEngineWidgets import QWebEngineView
     except Exception as e:
-        print(f"❌ فشل التثبيت التلقائي بسبب: {e}")
+        print(f"❌ حدث خطأ أثناء التهيئة: {e}")
         sys.exit(1)
 
 # -------------------------------------------------------------
-# دالة جلب وقراءة ملف القنوات العربية من GitHub
+# جلب روابط القنوات العربية من GitHub
 # -------------------------------------------------------------
 def fetch_arabic_channels():
     url = "https://iptv-org.github.io/iptv/languages/ara.m3u"
     channels = {}
-    print("🌐 جاري سحب القنوات العربية من GitHub...")
+    print("🌐 جاري سحب قنوات GitHub العربية...")
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response:
@@ -46,19 +46,19 @@ def fetch_arabic_channels():
             elif line.startswith('http') and current_name:
                 channels[current_name] = line
                 current_name = None
-        print(f"✅ تم تحميل {len(channels)} قناة عربية بنجاح!")
+        print(f"✅ تم تجهيز {len(channels)} قناة بنجاح!")
         return channels
     except Exception as e:
-        print(f"❌ فشل جلب القنوات بسبب: {e}")
-        return {"قناة تجريبية تعمل دائماً (MP4)": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
+        print(f"❌ تعذر الاتصال بالمستودع: {e}")
+        return {"قناة تجريبية ثابتة": "https://www.w3schools.com/html/mov_bbb.mp4"}
 
 # -------------------------------------------------------------
-# كود تطبيق التلفزيون الرئيسي المعتمد على VLC
+# واجهة التلفزيون الذكي المعتمد على عارض الويب المدمج
 # -------------------------------------------------------------
-class SmartTVApp(QWidget):
+class UltimateTVApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("تطبيق التلفزيون العربي بمحرك VLC 📺")
+        self.setWindowTitle("تطبيق التلفزيون العربي المستقر 📺")
         self.setGeometry(100, 100, 1200, 700)
         self.setStyleSheet("background-color: #0c0f12;") 
 
@@ -70,16 +70,16 @@ class SmartTVApp(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # تصميم قائمة القنوات الجانبية
+        # تصميم القائمة الجانبية
         self.channel_list = QListWidget()
         self.channel_list.addItems(self.channels.keys())
-        self.channel_list.setFixedWidth(350) 
+        self.channel_list.setFixedWidth(340) 
         self.channel_list.setStyleSheet("""
             QListWidget {
-                background-color: rgba(20, 24, 33, 245);
+                background-color: #11151c;
                 color: #e2e8f0;
                 font-size: 16px;
-                font-family: 'Segoe UI', 'Arial';
+                font-family: 'Segoe UI', Arial;
                 font-weight: bold;
                 border: none;
                 padding: 10px;
@@ -95,21 +95,13 @@ class SmartTVApp(QWidget):
         """)
         self.channel_list.itemClicked.connect(self.play_channel)
 
-        # إنشاء حاوية فارغة للفيديو (تمهيداً لربطها بـ VLC)
-        self.video_container = QWidget()
-        self.video_container.setStyleSheet("background-color: #000000;")
+        # مشغل الويب الذكي (يقوم بتشغيل البث داخل بيئة متصفح معزولة وتلقائية)
+        self.web_player = QWebEngineView()
+        self.web_player.setStyleSheet("background-color: #000000;")
 
         main_layout.addWidget(self.channel_list)
-        main_layout.addWidget(self.video_container)
+        main_layout.addWidget(self.web_player)
         self.setLayout(main_layout)
-
-        # تهيئة مشغل VLC داخل واجهة بايثون
-        self.vlc_instance = vlc.Instance()
-        self.media_player = self.vlc_instance.media_player_new()
-        
-        # ربط مخرج فيديو VLC بنوافذ بايثون (تحديداً لويندوز)
-        if sys.platform.startswith('win'):
-            self.media_player.set_hwnd(int(self.video_container.winId()))
 
         self.channel_list.setFocus()
         if self.channel_list.count() > 0:
@@ -118,12 +110,21 @@ class SmartTVApp(QWidget):
     def play_channel(self, item):
         channel_name = item.text()
         url = self.channels[channel_name]
-        print(f"🎬 تشغيل عبر VLC: {channel_name} -> {url}")
+        print(f"📡 جاري العرض الفوري لـ: {channel_name}")
         
-        # إنشاء ميديا وتشغيلها في مشغل VLC
-        media = self.vlc_instance.media_new(url)
-        self.media_player.set_media(media)
-        self.media_player.play()
+        # كود HTML ذكي ومدمج لتشغيل أي رابط بث مباشر تلقائياً بملء الشاشة وبأعلى كفاءة
+        html_content = f"""
+        <html>
+        <body style="margin:0; background-color:black; display:flex; justify-content:center; align-items:center;">
+            <video autoplay controls width="100%" height="100%" style="object-fit: contain;">
+                <source src="{url}" type="application/x-mpegURL">
+                <source src="{url}" type="video/mp4">
+                تنبيه: هذا الرابط غير مدعوم في متصفحك الحالي.
+            </video>
+        </body>
+        </html>
+        """
+        self.web_player.setHtml(html_content)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Right or event.key() == Qt.Key_Space:
@@ -134,13 +135,8 @@ class SmartTVApp(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def closeEvent(self, event):
-        # إغلاق مشغل VLC بأمان عند قفل البرنامج
-        self.media_player.stop()
-        super().closeEvent(event)
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    tv_app = SmartTVApp()
+    tv_app = UltimateTVApp()
     tv_app.show() 
     sys.exit(app.exec_())
