@@ -1,142 +1,641 @@
-import subprocess
-import sys
-import urllib.request
-import re
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مشغل التلفزيون - القنوات العربية</title>
+    <!-- استخدام HLS.js لتشغيل البث المباشر -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-# -------------------------------------------------------------
-# تثبيت PyQt5 الذكي والتلقائي (يحتوي على المتصفح المدمج)
-# -------------------------------------------------------------
-try:
-    from PyQt5 import QtWidgets, QtCore, QtWebEngineWidgets
-    from PyQt5.QtCore import QUrl, Qt
-    from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget
-    from PyQt5.QtWebEngineWidgets import QWebEngineView
-except ImportError:
-    print("🔔 جاري تهيئة المحرك المتوافق... يرجى الانتظار ثواني...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt5", "PyQt5-WebEngine"])
-        print("✅ تم التجهيز! جاري تشغيل التطبيق...")
-        from PyQt5.QtCore import QUrl, Qt
-        from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QListWidget
-        from PyQt5.QtWebEngineWidgets import QWebEngineView
-    except Exception as e:
-        print(f"❌ حدث خطأ أثناء التهيئة: {e}")
-        sys.exit(1)
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+        }
 
-# -------------------------------------------------------------
-# جلب روابط القنوات العربية من GitHub
-# -------------------------------------------------------------
-def fetch_arabic_channels():
-    url = "https://iptv-org.github.io/iptv/languages/ara.m3u"
-    channels = {}
-    print("🌐 جاري سحب قنوات GitHub العربية...")
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
-            content = response.read().decode('utf-8')
-        
-        lines = content.split('\n')
-        current_name = None
-        for line in lines:
-            line = line.strip()
-            if line.startswith('#EXTINF:'):
-                match = re.search(r',([^,]+)$', line)
-                if match:
-                    current_name = match.group(1).strip()
-            elif line.startswith('http') and current_name:
-                channels[current_name] = line
-                current_name = None
-        print(f"✅ تم تجهيز {len(channels)} قناة بنجاح!")
-        return channels
-    except Exception as e:
-        print(f"❌ تعذر الاتصال بالمستودع: {e}")
-        return {"قناة تجريبية ثابتة": "https://www.w3schools.com/html/mov_bbb.mp4"}
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-# -------------------------------------------------------------
-# واجهة التلفزيون الذكي المعتمد على عارض الويب المدمج
-# -------------------------------------------------------------
-class UltimateTVApp(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("تطبيق التلفزيون العربي المستقر 📺")
-        self.setGeometry(100, 100, 1200, 700)
-        self.setStyleSheet("background-color: #0c0f12;") 
+        /* رأس الصفحة */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
 
-        self.channels = fetch_arabic_channels()
-        self.init_ui()
+        .header h1 {
+            font-size: 24px;
+            color: #e50914;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-    def init_ui(self):
-        main_layout = QHBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        .header h1 .icon {
+            font-size: 28px;
+        }
 
-        # تصميم القائمة الجانبية
-        self.channel_list = QListWidget()
-        self.channel_list.addItems(self.channels.keys())
-        self.channel_list.setFixedWidth(340) 
-        self.channel_list.setStyleSheet("""
-            QListWidget {
-                background-color: #11151c;
-                color: #e2e8f0;
-                font-size: 16px;
-                font-family: 'Segoe UI', Arial;
-                font-weight: bold;
-                border: none;
-                padding: 10px;
+        .status-badge {
+            background: #1a1a1a;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #aaa;
+            border: 1px solid #333;
+        }
+
+        .status-badge .count {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* منطقة المشغل */
+        .player-wrapper {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            position: relative;
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            max-height: 70vh;
+            border: 1px solid #222;
+        }
+
+        .player-wrapper video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #000;
+        }
+
+        .player-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            pointer-events: none;
+        }
+
+        .player-overlay .channel-name {
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+
+        /* أزرار التحكم المخصصة */
+        .custom-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .custom-controls button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            backdrop-filter: blur(5px);
+        }
+
+        .custom-controls button:hover {
+            background: #e50914;
+            border-color: #e50914;
+        }
+
+        .custom-controls .volume-slider {
+            width: 100px;
+            accent-color: #e50914;
+        }
+
+        /* شريط البحث */
+        .search-section {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-section input {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #fff;
+            font-size: 16px;
+            min-width: 200px;
+        }
+
+        .search-section input:focus {
+            outline: none;
+            border-color: #e50914;
+        }
+
+        .search-section select {
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* قائمة القنوات */
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        .channels-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .channels-grid::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .channels-grid::-webkit-scrollbar-thumb {
+            background: #e50914;
+            border-radius: 4px;
+        }
+
+        .channel-card {
+            background: #1a1a1a;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .channel-card:hover {
+            background: #2a2a2a;
+            border-color: #555;
+            transform: translateX(5px);
+        }
+
+        .channel-card.active {
+            border-color: #e50914;
+            background: #2a1a1a;
+        }
+
+        .channel-card .logo {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .channel-card .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .channel-card .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .channel-card .info .name {
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-card .info .group {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .channel-card .play-icon {
+            color: #4CAF50;
+            font-size: 18px;
+        }
+
+        /* رسالة الخطأ / التحميل */
+        .loading-message {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .loading-message .spinner {
+            border: 4px solid #1a1a1a;
+            border-top: 4px solid #e50914;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* التجاوب مع الشاشات الصغيرة */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 18px;
             }
-            QListWidget::item {
-                padding: 12px;
-                margin-bottom: 4px;
-                border-radius: 6px;
-                color: #cbd5e1;
+            .channels-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                max-height: 350px;
             }
-            QListWidget::item:hover { background-color: #1e293b; color: #ffffff; }
-            QListWidget::item:selected { background-color: #2563eb; color: #ffffff; }
-        """)
-        self.channel_list.itemClicked.connect(self.play_channel)
+            .player-wrapper {
+                aspect-ratio: 16 / 9;
+                max-height: 40vh;
+            }
+            .custom-controls {
+                gap: 8px;
+            }
+            .custom-controls button {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
 
-        # مشغل الويب الذكي (يقوم بتشغيل البث داخل بيئة متصفح معزولة وتلقائية)
-        self.web_player = QWebEngineView()
-        self.web_player.setStyleSheet("background-color: #000000;")
+        @media (max-width: 480px) {
+            .channels-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .channel-card .info .name {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
 
-        main_layout.addWidget(self.channel_list)
-        main_layout.addWidget(self.web_player)
-        self.setLayout(main_layout)
+<div class="container">
+    <!-- رأس الصفحة -->
+    <div class="header">
+        <h1>
+            <span class="icon">📺</span>
+            تلفزيون العرب
+        </h1>
+        <div class="status-badge">
+            🟢 <span class="count" id="channelCount">0</span> قناة
+        </div>
+    </div>
 
-        self.channel_list.setFocus()
-        if self.channel_list.count() > 0:
-            self.channel_list.setCurrentRow(0)
+    <!-- مشغل الفيديو -->
+    <div class="player-wrapper" id="playerWrapper">
+        <video id="videoPlayer" controls autoplay playsinline></video>
+        <div class="player-overlay">
+            <div class="channel-name" id="currentChannelName">اختر قناة للمشاهدة</div>
+        </div>
+    </div>
 
-    def play_channel(self, item):
-        channel_name = item.text()
-        url = self.channels[channel_name]
-        print(f"📡 جاري العرض الفوري لـ: {channel_name}")
-        
-        # كود HTML ذكي ومدمج لتشغيل أي رابط بث مباشر تلقائياً بملء الشاشة وبأعلى كفاءة
-        html_content = f"""
-        <html>
-        <body style="margin:0; background-color:black; display:flex; justify-content:center; align-items:center;">
-            <video autoplay controls width="100%" height="100%" style="object-fit: contain;">
-                <source src="{url}" type="application/x-mpegURL">
-                <source src="{url}" type="video/mp4">
-                تنبيه: هذا الرابط غير مدعوم في متصفحك الحالي.
-            </video>
-        </body>
-        </html>
-        """
-        self.web_player.setHtml(html_content)
+    <!-- أزرار تحكم إضافية -->
+    <div class="custom-controls">
+        <button onclick="playPrevious()">⏮ السابق</button>
+        <button onclick="playNext()">التالي ⏭</button>
+        <button onclick="toggleMute()">🔊 كتم</button>
+        <span style="font-size:13px; color:#888;">🔊</span>
+        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70" onchange="setVolume(this.value)">
+        <span id="volumeDisplay" style="font-size:13px; color:#888;">70%</span>
+        <button onclick="refreshChannels()" style="margin-right:auto;">🔄 تحديث</button>
+    </div>
 
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Right or event.key() == Qt.Key_Space:
-            if self.channel_list.isVisible(): self.channel_list.hide()
-            else: self.channel_list.show(); self.channel_list.setFocus()
-        elif event.key() == Qt.Key_Escape or event.key() == Qt.Key_Left:
-            self.channel_list.hide()
-        else:
-            super().keyPressEvent(event)
+    <!-- شريط البحث والفلترة -->
+    <div class="search-section">
+        <input type="text" id="searchInput" placeholder="🔍 ابحث عن قناة..." oninput="filterChannels()">
+        <select id="groupFilter" onchange="filterChannels()">
+            <option value="all">جميع المجموعات</option>
+        </select>
+    </div>
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    tv_app = UltimateTVApp()
-    tv_app.show() 
-    sys.exit(app.exec_())
+    <!-- قائمة القنوات -->
+    <div id="channelsContainer">
+        <div class="loading-message" id="loadingMessage">
+            <div class="spinner"></div>
+            <p>جاري تحميل القنوات...</p>
+        </div>
+        <div class="channels-grid" id="channelsGrid"></div>
+    </div>
+</div>
+
+<script>
+    // ============================================
+    // 1. الرابط الرئيسي لقائمة القنوات العربية
+    // ============================================
+    const M3U_URL = 'https://iptv-org.github.io/iptv/languages/ara.m3u';
+
+    // ============================================
+    // 2. المتغيرات العامة
+    // ============================================
+    let channels = [];
+    let filteredChannels = [];
+    let currentIndex = 0;
+    let video = document.getElementById('videoPlayer');
+    let isMuted = false;
+
+    // ============================================
+    // 3. تحميل ومعالجة ملف M3U
+    // ============================================
+    async function loadChannels() {
+        try {
+            const response = await fetch(M3U_URL);
+            if (!response.ok) throw new Error('فشل تحميل القائمة');
+            const data = await response.text();
+            parseM3U(data);
+        } catch (error) {
+            console.error(error);
+            document.getElementById('loadingMessage').innerHTML = `
+                <p style="color:#e50914;">❌ تعذر تحميل القائمة. تأكد من اتصالك بالإنترنت.</p>
+                <button onclick="loadChannels()" style="background:#e50914;border:none;color:#fff;padding:10px 20px;border-radius:6px;cursor:pointer;">إعادة المحاولة</button>
+            `;
+        }
+    }
+
+    function parseM3U(data) {
+        const lines = data.split('\n');
+        const newChannels = [];
+        let current = {};
+
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+
+            if (line.startsWith('#EXTINF:')) {
+                // استخراج المعلومات
+                const groupMatch = line.match(/group-title="([^"]*)"/);
+                const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+                const nameMatch = line.match(/,([^,]*)$/);
+
+                current = {
+                    name: nameMatch ? nameMatch[1].trim() : 'قناة بدون اسم',
+                    group: groupMatch ? groupMatch[1].trim() : 'عام',
+                    logo: logoMatch ? logoMatch[1].trim() : '',
+                    url: ''
+                };
+            } else if (line.startsWith('http') && current.url === '') {
+                current.url = line;
+                if (current.name && current.url) {
+                    newChannels.push({ ...current });
+                }
+                current = {};
+            }
+        }
+
+        // إذا كانت القائمة فارغة، نضيف قنوات تجريبية
+        if (newChannels.length === 0) {
+            console.warn('لم يتم العثور على قنوات، إضافة قنوات تجريبية');
+            newChannels.push(
+                { name: 'العربية', group: 'أخبار', logo: '', url: 'https://www.youtube.com/live/HD3B-vgaX7M?embed' },
+                { name: 'الجزيرة', group: 'أخبار', logo: '', url: 'https://www.youtube.com/live/zUj0PWHe_rI?embed' },
+                { name: 'الحدث', group: 'أخبار', logo: '', url: 'https://www.youtube.com/live/dVjCb9b-CJ8?embed' },
+                { name: 'سكاي نيوز', group: 'أخبار', logo: '', url: 'https://www.youtube.com/live/9SeF3BZ1onw?embed' }
+            );
+        }
+
+        channels = newChannels;
+        filteredChannels = [...channels];
+        updateUI();
+    }
+
+    // ============================================
+    // 4. تحديث الواجهة
+    // ============================================
+    function updateUI() {
+        // تحديث عدد القنوات
+        document.getElementById('channelCount').textContent = channels.length;
+
+        // تحديث قائمة المجموعات
+        const groups = [...new Set(channels.map(c => c.group))];
+        const groupSelect = document.getElementById('groupFilter');
+        const currentVal = groupSelect.value;
+        groupSelect.innerHTML = '<option value="all">جميع المجموعات</option>';
+        groups.sort().forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = g;
+            groupSelect.appendChild(opt);
+        });
+        groupSelect.value = currentVal;
+
+        // عرض القنوات
+        filterChannels();
+
+        // اختيار أول قناة تلقائياً
+        if (filteredChannels.length > 0 && !video.src) {
+            playChannel(0);
+        }
+    }
+
+    function filterChannels() {
+        const search = document.getElementById('searchInput').value.toLowerCase().trim();
+        const group = document.getElementById('groupFilter').value;
+
+        filteredChannels = channels.filter(ch => {
+            const matchSearch = ch.name.toLowerCase().includes(search) || ch.group.toLowerCase().includes(search);
+            const matchGroup = group === 'all' || ch.group === group;
+            return matchSearch && matchGroup;
+        });
+
+        renderChannels();
+        // تحديث الفهرس الحالي إذا كان خارج النطاق
+        if (currentIndex >= filteredChannels.length) {
+            currentIndex = Math.max(0, filteredChannels.length - 1);
+        }
+        if (filteredChannels.length > 0 && !video.src) {
+            playChannel(currentIndex);
+        }
+    }
+
+    function renderChannels() {
+        const grid = document.getElementById('channelsGrid');
+        const loading = document.getElementById('loadingMessage');
+
+        if (filteredChannels.length === 0) {
+            grid.innerHTML = `<div class="loading-message" style="grid-column:1/-1;"><p>😕 لا توجد قنوات تطابق البحث</p></div>`;
+            loading.style.display = 'none';
+            return;
+        }
+
+        loading.style.display = 'none';
+        grid.innerHTML = filteredChannels.map((ch, idx) => `
+            <div class="channel-card ${idx === currentIndex ? 'active' : ''}" onclick="playChannel(${idx})">
+                <div class="logo">
+                    ${ch.logo ? `<img src="${ch.logo}" alt="${ch.name}" onerror="this.parentElement.textContent='📺'">` : '📺'}
+                </div>
+                <div class="info">
+                    <div class="name">${ch.name}</div>
+                    <div class="group">${ch.group}</div>
+                </div>
+                ${idx === currentIndex ? '<span class="play-icon">▶</span>' : ''}
+            </div>
+        `).join('');
+
+        // تحديث الـ active بعد الإعادة
+        document.querySelectorAll('.channel-card').forEach((el, idx) => {
+            if (idx === currentIndex) el.classList.add('active');
+        });
+    }
+
+    // ============================================
+    // 5. التحكم في التشغيل
+    // ============================================
+    function playChannel(index) {
+        if (filteredChannels.length === 0) return;
+        if (index < 0) index = filteredChannels.length - 1;
+        if (index >= filteredChannels.length) index = 0;
+
+        currentIndex = index;
+        const channel = filteredChannels[currentIndex];
+        document.getElementById('currentChannelName').textContent = channel.name;
+
+        // محاولة تشغيل الرابط
+        let url = channel.url;
+
+        // إذا كان الرابط من يوتيوب، نحوله لتشغيل مباشر
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            // نستخرج الـ video ID
+            let videoId = null;
+            if (url.includes('v=')) {
+                videoId = url.split('v=')[1]?.split('&')[0];
+            } else if (url.includes('youtu.be/')) {
+                videoId = url.split('youtu.be/')[1]?.split('?')[0];
+            }
+            if (videoId) {
+                // نستخدم واجهة يوتيوب المدمجة
+                url = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
+                video.src = url;
+                video.setAttribute('allow', 'autoplay; encrypted-media');
+                video.load();
+                video.play().catch(e => console.log('تشغيل يوتيوب:', e));
+                renderChannels();
+                return;
+            }
+        }
+
+        // للروابط العادية (M3U8 أو MP4)
+        if (Hls.isSupported() && url.includes('.m3u8')) {
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.log('تشغيل HLS:', e));
+            });
+            hls.on(Hls.Events.ERROR, () => {
+                // محاولة بديلة باستخدام src مباشر
+                video.src = url;
+                video.load();
+            });
+        } else {
+            video.src = url;
+            video.load();
+            video.play().catch(e => console.log('تشغيل مباشر:', e));
+        }
+
+        renderChannels();
+    }
+
+    // ============================================
+    // 6. دوال التحكم الإضافية
+    // ============================================
+    function playNext() {
+        if (filteredChannels.length === 0) return;
+        playChannel(currentIndex + 1);
+    }
+
+    function playPrevious() {
+        if (filteredChannels.length === 0) return;
+        playChannel(currentIndex - 1);
+    }
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        video.muted = isMuted;
+        document.querySelector('.custom-controls button:nth-child(3)').textContent = isMuted ? '🔇 كتم' : '🔊 كتم';
+    }
+
+    function setVolume(val) {
+        video.volume = val / 100;
+        document.getElementById('volumeDisplay').textContent = val + '%';
+    }
+
+    function refreshChannels() {
+        document.getElementById('channelsGrid').innerHTML = '';
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('loadingMessage').innerHTML = `
+            <div class="spinner"></div>
+            <p>جاري تحديث القنوات...</p>
+        `;
+        channels = [];
+        filteredChannels = [];
+        loadChannels();
+    }
+
+    // ============================================
+    // 7. تشغيل عند تحميل الصفحة
+    // ============================================
+    window.onload = function() {
+        loadChannels();
+
+        // دعم مفاتيح التنقل بالكيبورد
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                playNext();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                playPrevious();
+            } else if (e.key === 'f' || e.key === 'F') {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    document.getElementById('playerWrapper').requestFullscreen();
+                }
+            }
+        });
+    };
+</script>
+
+</body>
+</html>
